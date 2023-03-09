@@ -1,0 +1,62 @@
+def standard_model(hp):
+    model = Sequential()
+    model.add(
+        Dense(
+            units=hp.Int("units_1", min_value=32, max_value=512, step=32),
+            input_shape=(4,),
+            activation=hp.Choice("act_1", values=["relu", "tanh", "sigmoid"]),
+        )
+    )
+
+    model.add(
+        Dense(
+            units=hp.Int(f"units_2", min_value=16, max_value=128, step=16),
+            activation=hp.Choice(
+                f"act_2",
+                values=["relu", "tanh", "sigmoid"],
+            ),
+        )
+    )
+
+    model.add(Dense(2, activation="softmax"))
+
+    # Set optimizer and learning rate
+    optimizer = hp.Choice("optimizer", values=["adam", "adagrad", "nadam", "rmsprop"])
+    learning_rate = hp.Choice("learning_rate", values=[1e-1, 1e-2, 1e-3, 1e-4])
+
+    if optimizer == "adam":
+        optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+    elif optimizer == "adagrad":
+        optimizer = keras.optimizers.Adagrad(learning_rate=learning_rate)
+    elif optimizer == "rmsprop":
+        optimizer = keras.optimizers.RMSprop(learning_rate=learning_rate)
+    else:
+        optimizer = keras.optimizers.Nadam(learning_rate=learning_rate)
+
+    model.compile(
+        optimizer=optimizer,
+        loss="mean_squared_error",
+        metrics=["mean_absolute_error"],
+    )
+
+    return model
+    
+
+tuner_100 = kt.Hyperband(
+    hypermodel=standard_model,
+    objective="val_loss",
+    max_epochs=100,
+    factor=3,
+    overwrite=True,
+    directory="my_dir",
+    project_name="standard_model_100",
+)
+# Search for the best hyperparameters
+early_stopping = EarlyStopping(monitor="val_loss", patience=10)
+tuner_100.search(
+    X_train_100,
+    y_train_100,
+    epochs=100,
+    validation_data=(X_val, y_val),
+    callbacks=[early_stopping],
+)
